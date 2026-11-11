@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PERFECTKEY</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="locked">
+<canvas id="stars" aria-hidden="true"></canvas>
+
+<!-- ============ lock screen ============ -->
+<div class="lock" id="lock">
+  <form class="lock-card" id="lockForm" autocomplete="off">
+    <div class="lock-icon" id="lockIcon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="shackle" d="M7.5 10.5V8a4.5 4.5 0 0 1 9 0v2.5"/><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M12 14.5v2.5"/></svg>
+    </div>
+    <h2>PERFECT<b>KEY</b></h2>
+    <p class="lock-sub" id="lockSub">ใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+    <div class="lock-fields" id="lockFields">
+    <div class="pw" id="pw">
+      <svg class="pw-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M17.5 12v3M20.5 12v2.2"/></svg>
+      <input id="lockIn" type="password" maxlength="64" placeholder="รหัสผ่าน" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="รหัสผ่าน" autofocus>
+      <button type="button" class="pw-eye" id="pwEye" title="แสดง / ซ่อนรหัส" aria-label="แสดงรหัส"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button>
+    </div>
+    <label class="remember"><input type="checkbox" id="lockRemember"><span class="box"></span>จำเครื่องนี้ไว้ 7 วัน (ไม่ต้องใส่รหัสทุกครั้ง)</label>
+    <button class="primary block" id="lockBtn" type="submit">Login</button>
+    <div class="lock-err" id="lockErr" role="alert"></div>
+    </div>
+    <!-- shown after the right password: fills up, then the site fades in -->
+    <div class="lock-load" id="lockLoad" aria-live="polite">
+      <div class="bar"><i id="loadBar"></i></div>
+      <div class="load-row"><span id="loadText">กำลังตรวจสอบ...</span><b id="loadPct">0%</b></div>
+    </div>
+  </form>
+</div>
+
+<div class="wrap" id="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="logo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4.2"/><path d="M12.2 12H21M17.5 12v3.2M20.5 12v2.4"/></svg></span>
+      <div><h1>PERFECT<b>KEY</b></h1><small>ระบบสร้างคีย์สำหรับทุกโปรแกรม</small></div>
+    </div>
+    <div class="top-tools">
+    <button class="icon-btn" id="sndBtn" title="เปิด / ปิดเสียง" aria-label="เปิด / ปิดเสียง"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="waves" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+    <button class="small lock-now" id="lockNow" title="ล็อกหน้าเว็บ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5V8a4.5 4.5 0 0 1 9 0v2.5"/><rect x="4.5" y="10.5" width="15" height="10" rx="3"/></svg>ล็อก</button>
+    </div>
+  </header>
+
+  <!-- which program -->
+  <nav class="products" id="products"></nav>
+
+  <!-- what to do for that program -->
+  <div class="current" id="current"></div>
+  <div class="current" id="migrate" style="display:none"></div>
+  <nav class="tabs">
+    <button data-p="make" class="on">สร้างคีย์</button>
+    <button data-p="hist">ประวัติ <span class="count" id="histCount"></span></button>
+    <button data-p="check">ตรวจคีย์</button>
+    <button data-p="inbox">ข้อความ <span class="badge-new" id="inboxBadge"></span></button>
+  </nav>
+
+  <!-- ============ make ============ -->
+  <section class="page on" id="p-make">
+    <div class="card">
+      <div class="step" id="stepMachine">
+        <div class="step-title"><span class="n">1</span>รหัสเครื่องลูกค้า <small>(ไม่บังคับ — เว้นว่างได้)</small></div>
+        <input id="machine" class="big" placeholder="เว้นว่าง = 1 คีย์ 1 เครื่อง  ·  หรือใส่ XXXX-XXXX" maxlength="19" autocomplete="off" spellcheck="false">
+        <p class="hint" id="machineHint"></p>
+      </div>
+      <div class="step" id="stepPlan" style="display:none">
+        <div class="step-title"><span class="n">1</span>แพ็กเกจ</div>
+        <div class="chips" id="planChips"></div>
+        <p class="hint" id="planHint"></p>
+      </div>
+
+      <div class="step">
+        <div class="step-title"><span class="n">2</span>ระยะเวลา</div>
+        <div class="chips" id="chips">
+          <button data-t="hour" data-c="1">1 ชั่วโมง</button>
+          <button data-t="day" data-c="1">1 วัน</button>
+          <button data-t="day" data-c="7">7 วัน</button>
+          <button data-t="month" data-c="1" class="on">1 เดือน</button>
+          <button data-t="month" data-c="3">3 เดือน</button>
+          <button data-t="year" data-c="1">1 ปี</button>
+          <button data-t="perm" data-c="0">ถาวร</button>
+          <button data-t="custom">กำหนดเอง</button>
+        </div>
+        <div class="custom" id="custom">
+          <input id="cCount" type="number" min="1" max="1023" value="2">
+          <select id="cUnit"><option value="hour">ชั่วโมง</option><option value="day" selected>วัน</option><option value="month">เดือน</option><option value="year">ปี</option></select>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-title"><span class="n">3</span>ชื่อคีย์ / ชื่อลูกค้า <small>(ไม่บังคับ — ไว้ค้นหาในประวัติ)</small></div>
+        <input id="customer" placeholder="เช่น สมชาย · LINE @somchai · ออเดอร์ #1024" autocomplete="off">
+      </div>
+
+      <div class="summary" id="summary"></div>
+      <button class="primary block" id="genBtn">สร้างคีย์</button>
+      <div class="err" id="genErr"></div>
+    </div>
+
+    <div class="card result" id="result">
+      <div class="label" id="keyLabel"></div>
+      <div class="keytext" id="keyText"></div>
+      <div class="meta" id="keyMeta"></div>
+      <div class="row">
+        <button class="primary" id="copyKey">คัดลอกคีย์</button>
+        <button id="copyMsg">คัดลอกข้อความส่งลูกค้า</button>
+        <button id="newBtn">สร้างคีย์ใหม่</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ history ============ -->
+  <section class="page" id="p-hist">
+    <div class="card">
+      <div class="toolbar">
+        <input id="search" placeholder="ค้นหา ชื่อลูกค้า / รหัสเครื่อง / คีย์">
+        <button class="small" id="exportCsv">ส่งออก Excel (CSV)</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>ลูกค้า</th><th>ระยะเวลา</th><th>หมดอายุ</th><th>เครื่อง</th><th>สร้างเมื่อ</th><th></th></tr></thead>
+          <tbody id="hist"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="histEmpty"></div>
+      <p class="hint">ประวัติเก็บบนเซิร์ฟเวอร์ (Cloudflare) แยกตามโปรแกรม — เปิดจากเครื่องไหนก็เห็นเหมือนกัน</p>
+    </div>
+  </section>
+
+  <!-- ============ check ============ -->
+  <section class="page" id="p-check">
+    <div class="card">
+      <div class="step-title" id="checkTitle"></div>
+      <input id="chkIn" class="big" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off" spellcheck="false" style="font-size:17px;letter-spacing:1px">
+      <div id="chkOut"></div>
+    </div>
+  </section>
+
+  <!-- ============ inbox ============ -->
+  <section class="page" id="p-inbox">
+    <div class="card">
+      <div id="inboxOff" class="empty" style="display:none"></div>
+      <div id="inboxOn">
+        <div class="inbox-bar">
+          <span class="live" id="live"><i></i><span id="liveText">กำลังเชื่อมต่อ...</span></span>
+          <div class="row">
+            <input id="inboxSearch" placeholder="ค้นหาข้อความ" style="max-width:220px;padding:8px 14px;border-radius:999px">
+            <button class="small" id="inboxRefresh">รีเฟรช</button>
+          </div>
+        </div>
+        <div id="inboxList"></div>
+        <div class="empty" id="inboxEmpty"></div>
+        <p class="hint">ข้อความใหม่ขึ้นเองทุก 30 วินาทีตอนเปิดหน้านี้ไว้ · ข้อความถูกเก็บบนเซิร์ฟเวอร์ (เซิร์ฟเวอร์ดึงข้อความใหม่เองทุกชั่วโมง ถ้าตั้ง Cron ไว้)</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">PERFECTKEY · รหัสลับทุกโปรแกรมอยู่บนเซิร์ฟเวอร์ ไม่อยู่ในหน้าเว็บนี้ · อย่าบอกรหัสผ่านเข้าเว็บกับใคร</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- products.js (public, no secrets) + app.js are loaded by lock.js after the server accepts the password -->
+<script src="assets/fx.js"></script>
+<script src="assets/lock.js"></script>
+</body>
+</html>
