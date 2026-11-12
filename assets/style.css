@@ -290,6 +290,17 @@ td.actions { text-align: right; }
 .tag { font-size: 12px; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line2); margin-left: 4px; }
 .tag.live { color: var(--white); border-color: rgba(255,255,255,.6); box-shadow: 0 0 8px rgba(255,255,255,.15); }
 .tag.dead { color: var(--muted); }
+.tag.off { color: var(--danger); border-color: var(--danger); }
+tbody tr.off td:not(.actions) { opacity: .5; }
+td.actions { white-space: normal; min-width: 170px; }   /* SetBio rows have 4 buttons: let them wrap instead of scrolling */
+td.actions button { margin: 2px 0; }
+
+/* edit an old web key (SetBio) */
+.pkm { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(0,0,0,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: rise .3s var(--out); }
+.pkm > .card { width: 100%; max-width: 480px; margin: 0; max-height: calc(100vh - 32px); overflow: auto; background: var(--card); }
+.pkm .step { margin-top: 14px; }
+.pkm .summary { margin: 14px 0 12px; }
 .empty { color: var(--muted); text-align: center; padding: 28px 0 12px; }
 
 /* ================= check ================= */

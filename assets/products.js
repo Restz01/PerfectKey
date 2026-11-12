@@ -42,7 +42,8 @@ window.PRODUCTS = [
   {
     id: "setbio", name: "SetBio", mark: "SB", sub: "เว็บ Biolink (ใส่คีย์แทนการสมัคร/ล็อกอิน)",
     tag: "SB2", machineSalt: "SETBIO",
-    web: { plans: [{ code: 2, name: "Pro", sub: "ปลดล็อกทุกฟีเจอร์" }, { code: 1, name: "Free", sub: "บัญชีฟรี (ฟีเจอร์จำกัด)" }] },
+    // edit: true = the history tab can add time / change the package / close an old key (needs SETBIO + SETBIO_TOKEN on the worker)
+    web: { plans: [{ code: 2, name: "Pro", sub: "ปลดล็อกทุกฟีเจอร์" }, { code: 1, name: "Free", sub: "บัญชีฟรี (ฟีเจอร์จำกัด)" }], edit: true },
     howTo: "เข้าเว็บ SetBio → กด \"เข้าสู่ระบบ\" → วางคีย์ → ตั้งชื่อหน้า (ครั้งแรก) · ครั้งต่อไปใช้คีย์เดิมเข้าสู่ระบบ · ถ้ามีบัญชีอยู่แล้ว ใส่คีย์ที่แท็บ \"บัญชี\" ในหน้าแต่ง หรือหน้า \"อัปเกรด\" เพื่อต่ออายุ (เวลาที่เหลือจะบวกเพิ่ม)",
     inbox: false,
     ls: {}

@@ -224,6 +224,121 @@ function resetAct(p, key) {
     toast("ปลดคีย์แล้ว — เปิดใช้กับเครื่องใหม่ได้ ✓"); return true;
   }).catch(function (e) { toast("ทำไม่สำเร็จ: " + e.message); return false; });
 }
+/* ---------------- website keys (SetBio): extend / change package / close an old key ----------------
+   The package and time of a used key live in the website's database, so the state shown here comes from the website's
+   worker (through the PERFECTKEY worker) and changes go back the same way. Closing a key logs its account out at once. */
+var webCache = {}, webFetched = {}, webCount = {};
+function canEdit(p) { return !!(p && p.web && p.web.edit); }
+function fetchWeb(p, force) {
+  if (!canEdit(p)) return;
+  var keys = loadHist(p).map(function (k) { return nk(k.key); });
+  if (!keys.length) return;
+  if (!force && webFetched[p.id] && webCount[p.id] === keys.length && Date.now() - webFetched[p.id] < 15000) return;
+  webFetched[p.id] = Date.now(); webCount[p.id] = keys.length;
+  api("/admin/web/status", { tag: p.tag, keys: keys }).then(function (j) {
+    webCache[p.id] = j.list || {};
+    if (p === P && pageOn("hist")) renderHist();
+  }).catch(function (e) { webCache[p.id] = webCache[p.id] || {}; webCache[p.id]._err = e.message; if (p === P && pageOn("hist")) renderHist(); });
+}
+function webState(p, key) { return canEdit(p) && webCache[p.id] ? webCache[p.id][nk(key)] || null : null; }
+/* what a key is now: { plan, until (s, 0 = forever, null = none), dur, used, user, off } */
+function eff(p, k) {
+  var s = webState(p, k.key) || {};
+  return { plan: s.plan || k.plan, until: s.until !== undefined ? s.until : k.expires, dur: s.dur || durText(k.type, k.count),
+    used: !!s.used, user: s.user || "", off: !!(s.off || s.suspended), keyOff: !!s.off, admin: !!s.admin };
+}
+function planName(p, code) { var pl = planOf(p, code); return pl ? pl.name : "?"; }
+function webWho(p, k) {
+  var e = eff(p, k), c = webCache[p.id];
+  var tail = !c ? " <span class='act wait'>กำลังตรวจ...</span>" : c._err ? " <span class='act wait' title='" + esc(c._err) + "'>ตรวจไม่ได้</span>" : "";
+  return (e.used ? "<span class='act on'>@" + esc(e.user) + "</span> · " : "<span class='act wait'>ยังไม่ใช้</span> · ") + "แพ็กเกจ " + esc(planName(p, e.plan)) + tail;
+}
+function addTo(sec, t, c) {   // like expiry(), from any start (unix s)
+  if (t === "perm") return 0;
+  var d = new Date(sec * 1000);
+  if (t === "hour") d.setTime(d.getTime() + c * 3600000);
+  else if (t === "day") d.setDate(d.getDate() + c);
+  else { var day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (t === "year" ? 12 * c : c)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
+  return Math.floor(d.getTime() / 1000);
+}
+function setOff(p, k, off) {
+  var e = eff(p, k);
+  if (off && !confirm("ปิดคีย์นี้?\n\n" + (e.used ? "บัญชี @" + e.user + " จะถูกออกจากระบบทันที (ภายใน 1 นาทีถ้าเปิดหน้าเว็บค้างไว้) เข้าสู่ระบบไม่ได้ และหน้าเว็บของเขาจะถูกซ่อน" : "คีย์นี้จะใช้เข้าสู่ระบบ / สมัครไม่ได้") + "\n\nเปิดคีย์กลับได้ภายหลัง ข้อมูลไม่หาย")) return Promise.resolve(false);
+  return api("/admin/web/key", { tag: p.tag, key: nk(k.key), action: off ? "off" : "on" }).then(function (j) {
+    (webCache[p.id] = webCache[p.id] || {})[nk(k.key)] = j.state;
+    toast(off ? "ปิดคีย์แล้ว" + (e.used ? " — @" + e.user + " ถูกออกจากระบบ" : "") : "เปิดคีย์แล้ว ✓");
+    if (window.pkSound) pkSound(off ? "copy" : "key");
+    return true;
+  }).catch(function (er) { toast("ทำไม่สำเร็จ: " + er.message); return false; });
+}
+function openEdit(p, k, after) {
+  var e = eff(p, k), now = Date.now() / 1000;
+  var pro = p.web.plans.filter(function (x) { return x.code === 2; })[0];
+  var st = { plan: e.plan === 2 ? 2 : (pro ? 2 : e.plan), t: "month", c: 1 };
+  var box = document.createElement("div"); box.className = "pkm";
+  box.innerHTML = "<div class='card'>" +
+    "<div class='step-title'>แก้ไขคีย์ " + esc(p.name) + (k.customer ? " · " + esc(k.customer) : "") + "</div>" +
+    "<div class='kv' style='margin-top:0'><div>คีย์</div><div class='mono'>" + esc(k.key) + "</div>" +
+    "<div>ตอนนี้</div><div>" + (e.used ? "บัญชี <b>@" + esc(e.user) + "</b> · " : "ยังไม่มีใครใช้ · ") + "แพ็กเกจ <b>" + esc(planName(p, e.plan)) + "</b>" +
+    (e.plan === 2 ? " · " + (e.until === 0 ? "ถาวร" : e.until ? (e.until > now ? "ถึง " : "หมดเมื่อ ") + esc(fmt(e.until)) : "") : "") + (e.off ? " · <b style='color:var(--danger)'>ปิดอยู่</b>" : "") + "</div></div>" +
+    "<div class='step' style='margin-top:16px'><div class='step-title'>แพ็กเกจ</div><div class='chips' id='eqPlan' style='grid-template-columns:repeat(" + p.web.plans.length + ",minmax(0,1fr))'>" +
+    p.web.plans.map(function (x) { return "<button data-code='" + x.code + "'>" + esc(x.name) + "</button>"; }).join("") + "</div></div>" +
+    "<div class='step' id='eqTimeStep'><div class='step-title'>เพิ่มเวลา</div><div class='chips' id='eqTime'>" +
+    [["hour", 1], ["day", 1], ["day", 7], ["month", 1], ["month", 3], ["year", 1], ["perm", 0], ["custom", 0]].map(function (x) {
+      return "<button data-t='" + x[0] + "' data-c='" + x[1] + "'>" + (x[0] === "custom" ? "กำหนดเอง" : x[0] === "perm" ? "ถาวร" : "+" + durText(x[0], x[1])) + "</button>";
+    }).join("") + "</div>" +
+    "<div class='custom' id='eqCustom'><input id='eqCount' type='number' min='1' max='1023' value='2'><select id='eqUnit'><option value='hour'>ชั่วโมง</option><option value='day' selected>วัน</option><option value='month'>เดือน</option><option value='year'>ปี</option></select></div></div>" +
+    "<div class='summary' id='eqSum'></div>" +
+    "<div class='row'><button class='primary' id='eqSave'>บันทึก</button><button id='eqCancel'>ยกเลิก</button></div>" +
+    "<div class='err' id='eqErr'></div></div>";
+  document.body.appendChild(box);
+  var q = function (id) { return box.querySelector("#" + id); };
+  function dur() {
+    if (st.t !== "custom") return { t: st.t, c: st.c };
+    var n = parseInt(q("eqCount").value, 10); return n >= 1 && n <= 1023 ? { t: q("eqUnit").value, c: n } : null;
+  }
+  function paint() {
+    [].forEach.call(q("eqPlan").children, function (b) { b.classList.toggle("on", +b.dataset.code === st.plan); });
+    [].forEach.call(q("eqTime").children, function (b) { b.classList.toggle("on", b.dataset.t === st.t && (st.t === "custom" || st.t === "perm" || +b.dataset.c === st.c)); });
+    var timed = st.plan === 2;
+    q("eqTimeStep").style.display = timed ? "" : "none";
+    q("eqCustom").classList.toggle("on", timed && st.t === "custom");
+    var d = dur(), s = "";
+    if (!timed) s = st.plan === e.plan ? "ไม่มีอะไรเปลี่ยน" : "เปลี่ยนเป็น <b>" + esc(planName(p, st.plan)) + "</b>" + (e.used && e.plan === 2 ? " — เวลา Pro ที่เหลือของบัญชีนี้จะหายไป" : "");
+    else if (!d) s = "ใส่จำนวน 1–1023";
+    else if (e.plan === 2 && e.until === 0) s = "เป็น Pro ถาวรอยู่แล้ว";
+    else {
+      var base = e.plan === 2 && e.until && e.until > now ? e.until : now, to = addTo(base, d.t, d.c);
+      s = (e.plan === 2 ? "ต่อเวลา " : "อัปเป็น <b>Pro</b> ") + "<b>" + (d.t === "perm" ? "ถาวร" : "+" + esc(durText(d.t, d.c))) + "</b> → ใช้ได้" + (to ? "ถึง <b>" + esc(fmt(to)) + "</b>" : " <b>ตลอดไป</b>") +
+        (e.used ? "" : " <small>(มีผลตอนลูกค้าเข้าสู่ระบบครั้งแรก)</small>");
+    }
+    q("eqSum").innerHTML = s;
+  }
+  function close() { box.remove(); document.removeEventListener("keydown", onKey); }
+  function onKey(ev) { if (ev.key === "Escape") close(); }
+  document.addEventListener("keydown", onKey);
+  box.onclick = function (ev) { if (ev.target === box) close(); };
+  q("eqPlan").onclick = function (ev) { var b = ev.target.closest("button"); if (b) { st.plan = +b.dataset.code; paint(); } };
+  q("eqTime").onclick = function (ev) { var b = ev.target.closest("button"); if (b) { st.t = b.dataset.t; st.c = +b.dataset.c; paint(); } };
+  q("eqCount").oninput = paint; q("eqUnit").onchange = paint;
+  q("eqCancel").onclick = close;
+  q("eqSave").onclick = function () {
+    var d = dur(), btn = this;
+    if (st.plan === 2 && !d) { q("eqErr").textContent = "ใส่จำนวน 1–1023"; return; }
+    if (st.plan !== 2 && st.plan === e.plan) { close(); return; }
+    if (st.plan !== 2 && e.used && e.plan === 2 && !confirm("เปลี่ยน @" + e.user + " เป็น " + planName(p, st.plan) + "?\nเวลา Pro ที่เหลือจะหายไป")) return;
+    btn.disabled = true; q("eqErr").textContent = "";
+    api("/admin/web/key", { tag: p.tag, key: nk(k.key), action: "set", plan: st.plan, type: d && d.t, count: d && d.t !== "perm" ? d.c : 0 }).then(function (j) {
+      (webCache[p.id] = webCache[p.id] || {})[nk(k.key)] = j.state;
+      var s = j.state || {};
+      toast("บันทึกแล้ว ✓ แพ็กเกจ " + planName(p, s.plan || st.plan) + (s.plan === 2 || (!s.plan && st.plan === 2) ? (s.until === 0 ? " ถาวร" : s.until ? " ถึง " + fmt(s.until) : "") : ""));
+      if (window.pkSound) pkSound("key");
+      close(); if (after) after();
+    }).catch(function (er) { q("eqErr").textContent = er.message; btn.disabled = false; });
+  };
+  paint();
+}
+
 $("copyKey").onclick = function () { if (last) copy(last.key, "คัดลอกคีย์ " + P.name + " แล้ว ✓"); };
 $("copyMsg").onclick = function () { if (last) copy(customerMessage(P, last), "คัดลอกข้อความแล้ว ✓"); };
 $("newBtn").onclick = function () { $("machine").value = ""; $("customer").value = ""; $("result").classList.remove("on"); update(); $("machine").focus(); };
@@ -233,17 +348,26 @@ function loadHist(p) { return histCache[p.tag] || []; }
 function loadAllHist() { return api("/admin/hist", {}).then(function (j) { histCache = j.list || {}; }); }
 function renderHist() {
   var all = loadHist(P), q = $("search").value.trim().toLowerCase(), now = Date.now() / 1000;
-  fetchActs(P);
+  fetchActs(P); fetchWeb(P);
   $("histCount").textContent = all.length ? "(" + all.length + ")" : "";
-  var h = all.filter(function (k) { return !q || [k.customer, k.machine, k.key].join(" ").toLowerCase().indexOf(q) >= 0; });
+  var edit = canEdit(P);
+  document.querySelector("#p-hist thead th:nth-child(4)").textContent = isWeb(P) ? "บัญชี" : "เครื่อง";
+  var h = all.filter(function (k) {
+    return !q || [k.customer, k.machine, k.key, edit ? eff(P, k).user : ""].join(" ").toLowerCase().indexOf(q) >= 0;
+  });
   $("histEmpty").style.display = h.length ? "none" : "";
   $("histEmpty").textContent = all.length ? "ไม่พบที่ค้นหา" : "ยังไม่มีคีย์ " + P.name;
   $("hist").innerHTML = h.map(function (k) {
-    var live = !k.expires || now < k.expires, i = all.indexOf(k);
-    return "<tr><td>" + esc(k.customer || "—") + "</td><td>" + esc(durText(k.type, k.count)) + "</td><td>" + esc(fmt(k.expires)) +
-      "<span class='tag " + (live ? "live" : "dead") + "'>" + (live ? "ใช้งานอยู่" : "หมดอายุ") + "</span></td><td class='mono'>" + actCell(P, k) +
+    var i = all.indexOf(k), e = edit ? eff(P, k) : null;
+    var exp = e ? (e.used && e.plan !== 2 ? null : e.until) : k.expires;
+    var live = exp === null || !exp || now < exp, tag = e && e.off ? "<span class='tag off'>ปิดแล้ว</span>"
+      : exp === null ? "<span class='tag live'>Free</span>" : "<span class='tag " + (live ? "live" : "dead") + "'>" + (live ? "ใช้งานอยู่" : "หมดอายุ") + "</span>";
+    return "<tr" + (e && e.off ? " class='off'" : "") + "><td>" + esc(k.customer || "—") + "</td><td>" + esc(e ? e.dur : durText(k.type, k.count)) + "</td><td>" + (exp === null ? "—" : esc(fmt(exp))) +
+      tag + "</td><td class='mono'>" + (e ? webWho(P, k) : actCell(P, k)) +
       "</td><td>" + esc(fmt(k.created)) + "</td><td class='actions'>" +
       (k.bind && actCache[P.id] && actCache[P.id][nk(k.key)] ? "<button class='small' data-reset='" + i + "' title='ลูกค้าเปลี่ยนเครื่อง: ปลดคีย์ให้เปิดใช้กับเครื่องใหม่ได้'>ย้ายเครื่อง</button> " : "") +
+      (e && webCache[P.id] && !webCache[P.id]._err ? "<button class='small' data-edit='" + i + "' title='ต่อเวลา / เปลี่ยนแพ็กเกจ ให้คีย์เดิม'>แก้ไข</button> " +
+        (e.admin ? "" : e.keyOff ? "<button class='small' data-on='" + i + "'>เปิดคีย์</button> " : "<button class='small danger' data-off='" + i + "' title='ปิดคีย์: ผู้ใช้ถูกออกจากระบบทันที'>ปิดคีย์</button> ") : "") +
       "<button class='small' data-copy='" + i + "'>คัดลอกคีย์</button> " +
       "<button class='small danger' data-del='" + i + "' title='ลบออกจากรายการ (คีย์ยังใช้ได้ตามปกติ)'>ลบ</button></td></tr>";
   }).join("");
@@ -253,6 +377,8 @@ $("hist").onclick = function (e) {
   var all = loadHist(P), p = P;
   if (b.dataset.copy) copy(all[+b.dataset.copy].key, "คัดลอกคีย์แล้ว ✓");
   if (b.dataset.reset) resetAct(P, all[+b.dataset.reset].key).then(function (ok) { if (ok) renderHist(); });
+  if (b.dataset.edit) openEdit(p, all[+b.dataset.edit], function () { if (p === P) renderHist(); });
+  if (b.dataset.off || b.dataset.on) setOff(p, all[+(b.dataset.off || b.dataset.on)], !!b.dataset.off).then(function (ok) { if (ok && p === P) renderHist(); });
   if (b.dataset.del && confirm("ลบคีย์นี้ออกจากรายการ?\n\nเป็นการลบบันทึกเท่านั้น คีย์ยังใช้ได้จนหมดอายุ")) {
     var k = all[+b.dataset.del];
     api("/admin/hist/delete", { tag: p.tag, key: k.key }).then(function () {
@@ -300,7 +426,23 @@ $("chkIn").oninput = function () {
       "<div class='kv'><div>ระยะเวลา</div><div>" + esc(durText(i.type, i.count)) + "</div>" +
       "<div>หมดอายุ</div><div>" + esc(fmt(i.expires)) + "</div>" +
       "<div>" + (isWeb(p) ? "แพ็กเกจ" : "เครื่อง") + "</div><div id='chkAct'>" + esc(whoText(i)) + "</div>" +
-      (rec ? "<div>ลูกค้า</div><div>" + esc(rec.customer || "—") + "</div><div>สร้างเมื่อ</div><div>" + esc(fmt(rec.created)) + "</div>" : "") + "</div>";
+      (rec ? "<div>ลูกค้า</div><div>" + esc(rec.customer || "—") + "</div><div>สร้างเมื่อ</div><div>" + esc(fmt(rec.created)) + "</div>" : "") +
+      (canEdit(p) ? "<div>บนเว็บ</div><div id='chkWeb'>กำลังตรวจ...</div>" : "") + "</div>";
+    if (canEdit(p)) {
+      var kk = rec || i;   // a key made before history existed still works: edit it straight from here
+      api("/admin/web/status", { tag: p.tag, keys: [nk(i.key)] }).then(function (j) {
+        var el = $("chkWeb"); if (!el || p !== P) return;
+        var s = (j.list || {})[nk(i.key)];
+        (webCache[p.id] = webCache[p.id] || {})[nk(i.key)] = s;
+        var e = eff(p, kk);
+        el.innerHTML = (e.used ? "บัญชี <b>@" + esc(e.user) + "</b> · " : "ยังไม่มีใครใช้ · ") + "แพ็กเกจ <b>" + esc(planName(p, e.plan)) + "</b>" +
+          (e.plan === 2 ? " · " + (e.until === 0 ? "ถาวร" : e.until ? "ถึง " + esc(fmt(e.until)) : "") : "") + (e.off ? " · <b style='color:var(--danger)'>ปิดอยู่</b>" : "") +
+          "<div class='row' style='justify-content:flex-start;margin-top:8px'><button class='small' id='chkEdit'>แก้ไข (ต่อเวลา / แพ็กเกจ)</button>" +
+          (e.admin ? "" : "<button class='small" + (e.keyOff ? "" : " danger") + "' id='chkOff'>" + (e.keyOff ? "เปิดคีย์" : "ปิดคีย์") + "</button>") + "</div>";
+        $("chkEdit").onclick = function () { openEdit(p, kk, function () { $("chkIn").oninput(); }); };
+        if ($("chkOff")) $("chkOff").onclick = function () { setOff(p, kk, !e.keyOff).then(function (ok) { if (ok) $("chkIn").oninput(); }); };
+      }).catch(function (e) { var el = $("chkWeb"); if (el) el.textContent = "ตรวจไม่ได้ (" + e.message + ")"; });
+    }
     if (i.bind) {
       api("/admin/status", { tag: p.tag, keys: [nk(i.key)] }).then(function (j) {
         var el = $("chkAct"); if (!el || p !== P) return;
