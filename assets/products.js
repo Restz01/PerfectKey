@@ -39,7 +39,7 @@ window.PRODUCTS = [
     id: "kioplay", name: "KIOPLAY", mark: "KY", sub: "โปรแกรม KIOPLAY (เล่นเกมมือถือบนคอม)",
     tag: "KY2", machineSalt: "KIOPLAY",
     howTo: "เปิดตัวติดตั้ง KIOPLAYSetup.exe → วางคีย์ในช่อง → กด \"ยืนยันคีย์\" → กดติดตั้ง",
-    inbox: false,
+    inbox: true,
     ls: {}
   },
   {
