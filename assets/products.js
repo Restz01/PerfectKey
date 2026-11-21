@@ -35,10 +35,24 @@ window.PRODUCTS = [
     inbox: true,
     ls: {}
   },
+  {
+    id: "kioplay", name: "KIOPLAY", mark: "KY", sub: "โปรแกรม KIOPLAY (เล่นเกมมือถือบนคอม)",
+    tag: "KY2", machineSalt: "KIOPLAY",
+    howTo: "เปิดตัวติดตั้ง KIOPLAYSetup.exe → วางคีย์ในช่อง → กด \"ยืนยันคีย์\" → กดติดตั้ง",
+    inbox: false,
+    ls: {}
+  },
+  {
+    id: "kiocheck", name: "KioCheck", mark: "KC", sub: "เว็บตรวจสล็อก / ยอดสตรีม (KioCheck)",
+    tag: "KC2", machineSalt: "KIOCHECK",
+    howTo: "เปิดเว็บ KioCheck → วางคีย์ในช่อง → กด \"เข้าสู่ระบบ\" (ต่อเน็ตตอนเปิดใช้) · 1 คีย์ใช้ได้ 1 เบราว์เซอร์/เครื่อง",
+    inbox: false,
+    ls: {}
+  },
   /* Websites. A web key is the customer's login: no machine ID - the 32-bit machine field carries the package code
      instead (plans[].code). The key works once: the first account that uses it owns it.
-     SetBio    (C:\Users\Administrator\KioBio, GitHub Pages + its own worker): the same secret is SB_SECRET on the SetBio worker.
-     SetDonate (C:\Users\Administrator\SetDonate, C# server): data/config.json "keySecretDonate". */
+     SetBio    (C:\Users\User\KioBio, GitHub Pages + its own worker): the same secret is SB_SECRET on the SetBio worker.
+     SetDonate (C:\Users\User\SetDonate, C# server): data/config.json "keySecretDonate". */
   {
     id: "setbio", name: "SetBio", mark: "SB", sub: "เว็บ Biolink (ใส่คีย์แทนการสมัคร/ล็อกอิน)",
     tag: "SB2", machineSalt: "SETBIO",
