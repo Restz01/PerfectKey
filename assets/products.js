@@ -43,6 +43,13 @@ window.PRODUCTS = [
     ls: {}
   },
   {
+    id: "kioblue", name: "KIOBLUE", mark: "KB", sub: "ตัวติดตั้ง KIOBLUE (MSI App Player + สกิน)",
+    tag: "KB2", machineSalt: "KIOBLUE",
+    howTo: "เปิด \"KIOBLUE Setup.exe\" → วางคีย์ในช่อง → กด \"ACTIVATE\" → กด INSTALL (ต่อเน็ตตอนเปิดใช้ครั้งแรก)",
+    inbox: false,
+    ls: {}
+  },
+  {
     id: "kiocheck", name: "KioCheck", mark: "KC", sub: "เว็บตรวจสล็อก / ยอดสตรีม (KioCheck)",
     tag: "KC2", machineSalt: "KIOCHECK",
     howTo: "เปิดเว็บ KioCheck → วางคีย์ในช่อง → กด \"เข้าสู่ระบบ\" (ต่อเน็ตตอนเปิดใช้) · 1 คีย์ใช้ได้ 1 เบราว์เซอร์/เครื่อง",
